@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<form action="{{ url_for('add_task') }}" method="post" class="task-form">
+  <input name="title" class="input" placeholder="Enter a new task..." required />
+  <input type="datetime-local" name="due_date" class="input-datetime" />
+  <select name="category" class="input">
+    <option value="">Category (optional)</option>
+    <option>Work</option>
+    <option>School</option>
+    <option>Personal</option>
+    <option>Other</option>
+  </select>
+  <button type="submit" class="btn btn-primary">Add Task</button>
+</form>
+
+<div class="sort-bar">
+  <form method="get">
+    <label>Sort by:</label>
+    <select name="sort" onchange="this.form.submit()">
+      <option value="">None</option>
+      <option value="due" {% if sort_by=='due' %}selected{% endif %}>Due Date</option>
+      <option value="complete" {% if sort_by=='complete' %}selected{% endif %}>Completion</option>
+      <option value="created" {% if sort_by=='created' %}selected{% endif %}>Created</option>
+    </select>
+  </form>
+</div>
+
+<div class="grid">
+  {% for t in tasks %}
+    <div class="card {% if t.complete %}completed{% endif %}">
+      <div class="card-header">
+        <h2>{{ t.title }}</h2>
+        {% if t.due %}<time>{{ t.due }}</time>{% endif %}
+      </div>
+      {% if t.category %}
+        <div class="tag-badge">{{ t.category }}</div>
+      {% endif %}
+      <div class="card-actions">
+        <form action="{{ url_for('toggle_complete', id=t.id) }}" method="post" class="inline-form">
+          <button type="submit" class="btn btn-small btn-secondary">
+            {% if t.complete %}Undo{% else %}Complete{% endif %}
+          </button>
+        </form>
+        <a href="{{ url_for('edit_task', id=t.id) }}" class="btn btn-small">Edit</a>
+        <form action="{{ url_for('delete_task', id=t.id) }}" method="post" class="inline-form">
+          <button type="submit" class="btn btn-small btn-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+    <p class="empty">No tasks yet.</p>
+  {% endfor %}
+</div>
+
+{% endblock %} 
