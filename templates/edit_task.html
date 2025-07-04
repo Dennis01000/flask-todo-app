@@ -1,15 +1,37 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="edit-container">
-  <h2>Edit Task</h2>
-  <form action="{{ url_for('edit_task', id=task.id) }}" method="post" class="task-form">
-    <input name="title" class="input" value="{{ task.title }}" required />
-    <input type="datetime-local" name="due_date" class="input-datetime" value="{{ task.due }}" />
-    <input name="category" class="input" value="{{ task.category }}" />
-    <div class="edit-actions">
-      <button type="submit" class="btn btn-primary">Save</button>
-      <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow">
+        <div class="card-body">
+          <h3 class="text-center mb-4">✏️ Edit Task</h3>
+          <form action="{{ url_for('edit_task', id=task.id) }}" method="post">
+            <div class="mb-3">
+              <label class="form-label">Task Title</label>
+              <input name="title" type="text" class="form-control" value="{{ task.title }}" required />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Due Date & Time</label>
+              <input name="due_date" type="datetime-local" class="form-control" value="{{ task.due }}" />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Category</label>
+              <input name="category" type="text" class="form-control" value="{{ task.category }}" />
+            </div>
+
+            <div class="d-flex justify-content-between">
+              <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+              <button type="submit" class="btn btn-success">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
-  </form>
+  </div>
 </div>
+
 {% endblock %}
