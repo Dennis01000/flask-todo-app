@@ -166,36 +166,39 @@ def google_login():
             flash("Google sign-in failed.")
             return redirect(url_for('login'))
 
+        # Make request to Google for user info
         resp = google.get("/oauth2/v2/userinfo")
         if not resp.ok:
-            flash("Failed to fetch user info from Google.")
             print("❌ Google response error:", resp.text)
+            flash("Failed to get user info from Google.")
             return redirect(url_for('login'))
 
         info = resp.json()
-        print("✅ Google user info:", info)
+        print("✅ Google user info received:", info)
 
         email = info.get("email")
         if not email:
-            flash("Google account did not return an email.")
+            flash("Email not returned from Google.")
             return redirect(url_for('login'))
 
+        # Check if user exists or create one
         user = User.query.filter_by(username=email).first()
-
         if not user:
             user = User(username=email, password=None)
             db.session.add(user)
             db.session.commit()
-            print("👤 New user created:", email)
+            print("👤 Created new user:", email)
 
         session['user_id'] = user.id
-        print("✅ Logged in as user_id:", user.id)
+        print("✅ Logged in, user_id set to:", user.id)
 
         return redirect(url_for('index'))
 
     except Exception as e:
-        print("🔥 Google login crash:", str(e))
+        import traceback
+        traceback.print_exc()  # 🔥 Print full error to logs
         return f"Internal Server Error: {str(e)}"
+
 
 
 # Init DB
