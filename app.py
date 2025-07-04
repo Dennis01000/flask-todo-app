@@ -9,19 +9,24 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Flask setup
 app = Flask(__name__, instance_relative_config=True)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+secret = os.getenv("FLASK_SECRET_KEY")
+if not secret:
+    raise RuntimeError("FLASK_SECRET_KEY not set in .env")
+
+app.secret_key = secret
+app.config['SESSION_COOKIE_SECURE'] = True  # Helps avoid mismatching_state in production
 
 # Ensure instance folder exists
 os.makedirs(app.instance_path, exist_ok=True)
 
-# Configure SQLite
+# SQLite setup
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'tasks.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# ==================== MODELS ====================
-
+# ==================== Models ====================
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -37,9 +42,7 @@ class Task(db.Model):
     created = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
-# ==================== GOOGLE AUTH ====================
-
-
+# ==================== Google OAuth ====================
 google_bp = make_google_blueprint(
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
@@ -48,20 +51,21 @@ google_bp = make_google_blueprint(
 )
 app.register_blueprint(google_bp, url_prefix="/login")
 
-
-# ==================== CONTEXT ====================
+# ==================== Context ====================
 @app.context_processor
 def inject_datetime():
     return {'datetime': datetime}
 
-# ==================== ROUTES ====================
-
+# ==================== Routes ====================
 @app.route('/')
 def index():
-    if 'user_id' not in session:
+    user_id = session.get('user_id')
+    if not user_id:
+        print("⚠️ No user_id in session — redirecting to login")
         return redirect(url_for('login'))
+
     sort_by = request.args.get('sort')
-    tasks = Task.query.filter_by(user_id=session['user_id'])
+    tasks = Task.query.filter_by(user_id=user_id)
 
     if sort_by == 'due':
         tasks = tasks.order_by(Task.due)
@@ -76,6 +80,7 @@ def index():
 def add_task():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+
     title = request.form['title']
     due = request.form.get('due_date')
     category = request.form.get('category')
@@ -121,7 +126,7 @@ def login():
         username = request.form['username']
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password, password):
+        if user and user.password and check_password_hash(user.password, password):
             session['user_id'] = user.id
             return redirect(url_for('index'))
         flash("Invalid username or password.")
@@ -147,8 +152,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ==================== GOOGLE LOGIN HANDLER ====================
-
+# ==================== Google Login Callback ====================
 @app.route('/login/google/authorized')
 def google_login():
     if not google.authorized:
@@ -162,15 +166,19 @@ def google_login():
 
     info = resp.json()
     username = info["email"]
+    print("✅ Google login success:", username)
+
     user = User.query.filter_by(username=username).first()
     if not user:
-        user = User(username=username, password="")  # No password, Google only
+        user = User(username=username, password=None)
         db.session.add(user)
         db.session.commit()
+        print("👤 Created new user from Google")
+
     session['user_id'] = user.id
     return redirect(url_for('index'))
 
-# ==================== INIT DB ====================
+# ==================== Init DB ====================
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
