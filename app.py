@@ -82,6 +82,7 @@ def index():
     return render_template('index.html', tasks=tasks.all(), sort_by=sort_by, current_user_email=current_user_email)
 
 
+
 @app.route('/add', methods=['POST'])
 def add_task():
     if 'user_id' not in session:
@@ -160,26 +161,42 @@ def logout():
 
 @app.route('/login/google/authorized')
 def google_login():
-    if not google.authorized:
-        flash("Google sign-in failed.")
-        return redirect(url_for('login'))
+    try:
+        if not google.authorized:
+            flash("Google sign-in failed.")
+            return redirect(url_for('login'))
 
-    resp = google.get("/oauth2/v2/userinfo")
-    if not resp.ok:
-        flash("Failed to fetch user info from Google.")
-        return redirect(url_for('login'))
+        resp = google.get("/oauth2/v2/userinfo")
+        if not resp.ok:
+            flash("Failed to fetch user info from Google.")
+            print("❌ Google response error:", resp.text)
+            return redirect(url_for('login'))
 
-    info = resp.json()
-    username = info["email"]
+        info = resp.json()
+        print("✅ Google user info:", info)
 
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        user = User(username=username, password=None)
-        db.session.add(user)
-        db.session.commit()
+        email = info.get("email")
+        if not email:
+            flash("Google account did not return an email.")
+            return redirect(url_for('login'))
 
-    session['user_id'] = user.id
-    return redirect(url_for('index'))
+        user = User.query.filter_by(username=email).first()
+
+        if not user:
+            user = User(username=email, password=None)
+            db.session.add(user)
+            db.session.commit()
+            print("👤 New user created:", email)
+
+        session['user_id'] = user.id
+        print("✅ Logged in as user_id:", user.id)
+
+        return redirect(url_for('index'))
+
+    except Exception as e:
+        print("🔥 Google login crash:", str(e))
+        return f"Internal Server Error: {str(e)}"
+
 
 # Init DB
 if __name__ == '__main__':
