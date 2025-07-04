@@ -5,6 +5,20 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_dance.contrib.google import make_google_blueprint, google
 from dotenv import load_dotenv
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
+
+# Mail config
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS') == 'True'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+
+mail = Mail(app)
+
+# Token serializer
+serializer = URLSafeTimedSerializer(app.secret_key)
 
 # Load environment variables
 load_dotenv()
@@ -81,6 +95,43 @@ def index():
 
     return render_template('index.html', tasks=tasks.all(), sort_by=sort_by, current_user_email=current_user_email)
 
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email']
+        user = User.query.filter_by(username=email).first()
+        if user:
+            token = serializer.dumps(email, salt='password-reset-salt')
+            reset_url = url_for('reset_password_token', token=token, _external=True)
+            msg = Message("Password Reset", sender=app.config['MAIL_USERNAME'], recipients=[email])
+            msg.body = f"Click to reset your password: {reset_url}"
+            mail.send(msg)
+            flash("Password reset link sent to your email.")
+            return redirect(url_for('login'))
+        flash("No account found with that email.")
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password_token(token):
+    try:
+        email = serializer.loads(token, salt='password-reset-salt', max_age=3600)
+    except Exception as e:
+        flash("Invalid or expired token.")
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(username=email).first()
+    if not user:
+        flash("No user found.")
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        user.password = generate_password_hash(new_password)
+        db.session.commit()
+        flash("Password reset successful.")
+        return redirect(url_for('login'))
+
+    return render_template('reset_password_token.html', email=email)
 
 
 @app.route('/add', methods=['POST'])
