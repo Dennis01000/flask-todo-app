@@ -8,18 +8,6 @@ from dotenv import load_dotenv
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 
-# Mail config
-app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
-app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
-app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS') == 'True'
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-
-mail = Mail(app)
-
-# Token serializer
-serializer = URLSafeTimedSerializer(app.secret_key)
-
 # Load environment variables
 load_dotenv()
 
@@ -31,6 +19,18 @@ if not secret:
 
 app.secret_key = secret
 app.config['SESSION_COOKIE_SECURE'] = True
+
+# Mail config
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS') == 'True'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+
+mail = Mail(app)
+
+# Token serializer
+serializer = URLSafeTimedSerializer(app.secret_key)
 
 # Ensure instance folder exists
 os.makedirs(app.instance_path, exist_ok=True)
